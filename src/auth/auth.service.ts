@@ -1,4 +1,5 @@
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
@@ -9,20 +10,26 @@ import { CreateUserDto } from '../users/dto';
 import { User } from '../users/entities/user.entity';
 import { SignInDto } from './dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
-import { AuthResponse, JwtPayload } from './interfaces/auth.interface';
+import { AuthResponse } from './interfaces/auth.interface';
+import { RefreshTokenService } from './refresh-token.service';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger('AuthService');
+
   constructor(
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
 
     private readonly jwtService: JwtService,
+    private readonly jwtRefreshService: RefreshTokenService,
+    private readonly configService: ConfigService,
   ) {}
 
   async signUp(createUserDto: CreateUserDto): Promise<AuthResponse> {
     try {
       const { password, ...userData } = createUserDto;
+
       const user = this.usersRepository.create({
         ...userData,
         password: bcrypt.hashSync(password, 10),
@@ -32,8 +39,9 @@ export class AuthService {
       delete user.password;
 
       const token = this.createToken(user.id);
+      const refreshToken = await this.createRefreshToken(user.id);
 
-      return { token, user };
+      return { accessToken: token, refreshToken, user };
     } catch (error) {
       ExceptionHandler(error);
     }
@@ -50,18 +58,52 @@ export class AuthService {
 
     const token = this.createToken(user.id);
 
-    return { token, user };
+    return { accessToken: token, user };
   }
 
   async refreshToken(refreshTokenDto: RefreshTokenDto): Promise<AuthResponse> {
-    const { token } = refreshTokenDto;
-    const { id } = this.jwtService.verify(token) as JwtPayload;
+    try {
+      const { refreshToken } = refreshTokenDto;
+      const token = this.jwtService.decode(refreshToken);
 
-    const user = await this.validateUser(id);
+      if (!token['id']) throw new UnauthorizedException('Invalid token');
 
-    const newToken = this.createToken(user.id);
+      const tokenId = token['id'];
 
-    return { token: newToken, user };
+      await this.jwtRefreshService.validate(tokenId, refreshToken);
+
+      const user = await this.validateUser(tokenId);
+
+      const newToken = this.createToken(user.id);
+
+      return { accessToken: newToken, user };
+    } catch (error) {
+      this.logger.error(error);
+
+      throw new UnauthorizedException(error.message);
+    }
+  }
+
+  async renewToken(refreshTokenDto: RefreshTokenDto): Promise<{ refreshToken: string }> {
+    try {
+      const { refreshToken } = refreshTokenDto;
+      const token = this.jwtService.decode(refreshToken);
+
+      if (!token['id']) throw new UnauthorizedException('Invalid token');
+
+      const tokenId = token['id'];
+
+      await this.jwtRefreshService.invalidate(tokenId);
+
+      const user = await this.validateUser(tokenId);
+
+      const newToken = await this.createRefreshToken(user.id);
+
+      return { refreshToken: newToken };
+    } catch (error) {
+      this.logger.error(error);
+      throw new UnauthorizedException('Invalid token');
+    }
   }
 
   async validateUser(id: string): Promise<User> {
@@ -74,7 +116,17 @@ export class AuthService {
     return user;
   }
 
-  private createToken(id: string) {
-    return this.jwtService.sign({ id });
+  private createToken(id: string, expiresIn?: string | null) {
+    const expires = this.configService.get('jwtExpiresIn');
+
+    return this.jwtService.sign({ id }, { expiresIn: expiresIn || expires });
+  }
+
+  private async createRefreshToken(id: string) {
+    const refreshToken = this.createToken(id, '7d');
+
+    await this.jwtRefreshService.insert(id, refreshToken);
+
+    return refreshToken;
   }
 }

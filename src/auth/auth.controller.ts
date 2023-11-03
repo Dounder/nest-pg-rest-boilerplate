@@ -23,4 +23,9 @@ export class AuthController {
   refreshToken(@Body() refreshTokenDto: RefreshTokenDto) {
     return this.authService.refreshToken(refreshTokenDto);
   }
+
+  @Post('renew_token')
+  renewToken(@Body() renewTokenDto: RefreshTokenDto) {
+    return this.authService.renewToken(renewTokenDto);
+  }
 }
