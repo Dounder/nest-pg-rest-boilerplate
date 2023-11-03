@@ -4,6 +4,10 @@ export const ENV_CONFIG = () => ({
   dbPort: process.env.DB_PORT,
   dbHost: process.env.DB_HOST,
   dbUsername: process.env.DB_USERNAME,
+
+  redisHost: process.env.REDIS_HOST,
+  redisUrl: process.env.REDIS_URL,
+
   port: process.env.PORT,
   state: process.env.STATE,
   jwtSecret: process.env.JWT_SECRET,

@@ -20,16 +20,6 @@ export class CreateUserDto {
   @IsEmail()
   email: string;
 
-  @IsString()
-  @IsNotEmpty()
-  @MinLength(1)
-  name: string;
-
-  @IsString()
-  @IsNotEmpty()
-  @MinLength(1)
-  lastName: string;
-
   @IsOptional()
   @IsEnum(UserRole, { each: true })
   roles?: UserRole[];

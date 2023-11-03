@@ -15,12 +15,6 @@ export class User extends BaseEntity {
   @Column({ type: 'varchar', length: 255, nullable: false })
   email: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  name: string;
-
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  lastName: string;
-
   @Column({ type: 'enum', enum: UserRole, default: [UserRole.USER], array: true })
   roles: UserRole[];
 }
