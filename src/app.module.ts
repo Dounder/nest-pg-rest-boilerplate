@@ -1,10 +1,12 @@
 import { Module } from '@nestjs/common';
-import { CommonModule } from './common/common.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { ENV_CONFIG, JoiValidationSchema } from './config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { UsersModule } from './users/users.module';
+
 import { AuthModule } from './auth/auth.module';
+import { CommonModule } from './common/common.module';
+import { ENV_CONFIG, JoiValidationSchema } from './config';
+import { SeedModule } from './seed/seed.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -35,6 +37,8 @@ import { AuthModule } from './auth/auth.module';
     UsersModule,
 
     AuthModule,
+
+    SeedModule,
   ],
   controllers: [],
   providers: [],
